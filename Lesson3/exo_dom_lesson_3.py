@@ -1,74 +1,80 @@
-import requests
-import pandas as pd
-from bs4 import BeautifulSoup
-import json
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 13 15:12:50 2017
 
+@author: olivier
+@desc: top 256 contributors in https://gist.github.com/paulmillr/2657075
+"""
+
+import json
+import pandas as pd
+import requests as rq
+from bs4 import BeautifulSoup
 
 # Get users name from GitHub
-GITHUB_URL = 'https://gist.github.com/paulmillr/2657075'
+url = 'https://gist.github.com/paulmillr/2657075'
+token = 'c6d6f524a51e72bdd42b1e34a278e39d3b536360'
+page = 1
 
 def extractDataForPage(soup):
+  body = []
+  row = []
+  name = []
 
-  body_ = []
-  row_ = []
-  users_name = []
+  table = soup.find_all(class_= 'readme blob instapaper_body')
+  for t in table:
+      body.extend(t.find_all('tbody'))
 
-  all_table = soup.find_all(class_= 'readme blob instapaper_body')
-  for table_ in all_table:
-      body_.extend(table_.find_all('tbody'))
+  for b in body:
+      row = b.select('a[href^="https://github.com/"]')
 
-  for b in body_:
-      row_= b.select('a[href^="https://github.com/"]') #CSS selector that gets href starting with "https://github.com/"
+  for r in row:
+      name.append(r.text)
 
-  for item in row_:
-      users_name.append(item.text)
+  print ("There are %s famous users" %len(name))
+  return name
 
-  print ("There are %s famous users" %len(users_name))
-  return users_name
-
-# Extract Top contributors by using crawling
 def getFamousGithubContributorsFromDOM(url):
-
-    results = requests.get(url)
+    results = rq.get(url)
     soup = BeautifulSoup(results.text,'html.parser')
-    users_name = extractDataForPage(soup)
-    return users_name
-
-# Get stars count for each user
-myTOKEN = 'b0b4ebea84b2d1203abf44fee92cd0cdda3feccf'
-PAGE = 1
-
+    name = extractDataForPage(soup)
+    return name
 
 def getStarsNumberForAllUser():
 
-    user_repoCount_starCount = []
-    star_count = 0
-    repo_count = 0
+    user_repCount_starCount = []
+    starCount = 0
+    repCount = 0
     temp = []
 
-    users_name = getFamousGithubContributorsFromDOM(GITHUB_URL)
-    print("[user name, " + "number of repositories, "+ "number of stars, "+ "mean stars per repo]")
-    if(len(users_name) > 0):
-        for user in users_name[0:]:
-            results = requests.get("https://api.github.com/users/" + user + "/repos?page=" + str(PAGE), auth=(user, myTOKEN))
-            user_repos_list = json.loads(results.text)
+    name = getFamousGithubContributorsFromDOM(url)
+    print("[user name, " + "number of repositories, " + "number of stars, "
+      + "mean stars per repo]")
 
-            if(len(user_repos_list) > 0):
-                for repo in user_repos_list:
-                    star_count += repo['stargazers_count']
-                    repo_count += 1
+    if len(name) > 0:
+        for user in name[0:]:
+            results = rq.get("https://api.github.com/users/" + user
+              + "/repos?page=" + str(page), auth=(user, token))
 
-                temp = [user, repo_count, star_count]
-                if(repo_count > 0):
-                    temp.append(star_count / repo_count)
+            userList = json.loads(results.text)
+            if len(userList) > 0:
+                for repo in userList:
+                    starCount += repo['stargazers_count']
+                    repCount += 1
+
+                temp = [user, repCount, starCount]
+                if repCount > 0:
+                    temp.append(starCount / repCount)
                 else:
                     temp.append(0)
                 print(temp)
-                user_repoCount_starCount.append(temp)
+                user_repCount_starCount.append(temp)
 
-    top_contributors_df = pd.DataFrame(user_repoCount_starCount)
-    top_contributors_df.columns = ["user name","number of repositories", "number of stars", "mean stars per repo"]
-    print(top_contributors_df)
-    top_contributors_df.to_csv('top_contributors_github_metrics_API_TOKEN_'+myTOKEN+'.csv')
+    df_contributor = pd.DataFrame(user_repCount_starCount)
+    df_contributor.columns = ["user name", "number of repositories",
+    "number of stars", "mean stars per repo"]
+    print(df_contributor)
+    df_contributor.to_csv('top_contributors_github.csv')
 
 getStarsNumberForAllUser()

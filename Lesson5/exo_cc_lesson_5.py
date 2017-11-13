@@ -1,6 +1,10 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-@author: Olivier Schultz
+Created on Mon Nov 13 15:12:50 2017
+
+@author: olivier
+@desc: Retrieves specific data for certain types of medicines
 """
 
 import re
@@ -33,7 +37,7 @@ def displayMedocInDataFrame(nbPages, nomMedoc):
         'txtCaracteresSub':'',
         'radLibelleSub':'4'}
 
-        resultsPost = requests.post(URL, data = parametresPost)
+        resultsPost = requests.post(URL, data=parametresPost)
         resultsParser = BeautifulSoup(resultsPost.text, 'html.parser')
         listMedocs = resultsParser.find_all(class_="standart")
 
@@ -41,7 +45,6 @@ def displayMedocInDataFrame(nbPages, nomMedoc):
             my_reg = re.compile('(^IBUPROFENE)\s+(\D[A-Z]+\s)+')
             resultMatch  = my_reg.search(medoc.text)
             if(resultMatch):
-                print(resultMatch.group(0))
                 moleculeMedoc.append(resultMatch.group(0))
             else:
                 moleculeMedoc.append("")
@@ -67,7 +70,6 @@ def displayMedocInDataFrame(nbPages, nomMedoc):
     df = df.set_index(np.arange(df.shape[0]))
     print(df)
 
-    df.to_csv("Medicaments_Regex.csv", sep=',')
+    df.to_csv("medicament.csv", sep=',')
 
 displayMedocInDataFrame(5, "ibuprofene")
-

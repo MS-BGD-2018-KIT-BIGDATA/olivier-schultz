@@ -1,38 +1,62 @@
-# @author : SCHULTZ Olivier
-# @version : 1.0
-# @desc : pourcentage Dell vs Acer on cdiscount
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Nov 13 15:12:50 2017
 
+@author: olivier
+@desc: discount on dell and acer computers on cdiscount
+"""
+
+import json
 import requests
-from bs4 import BeautifulSoup
-import pandas as pd
 import numpy as np
 
-def findPromo(brand,page):
-    url = 'http://www.cdiscount.com/search/10/' + brand + '.html?TechnicalForm.SiteMapNodeId=0&TechnicalForm.DepartmentId=10&TechnicalForm.ProductId=&hdnPageType=Search&TechnicalForm.SellerId=&TechnicalForm.PageType=SEARCH_AJAX&TechnicalForm.LazyLoading.ProductSheets=False&NavigationForm.CurrentSelectedNavigationPath=f%2F1%2F0k&FacetForm.SelectedFacets.Index=0&FacetForm.SelectedFacets.Index=1&FacetForm.SelectedFacets.Index=2&FacetForm.SelectedFacets.Index=3&FacetForm.SelectedFacets.Index=4&FacetForm.SelectedFacets.Index=5&FacetForm.SelectedFacets.Index=6&FacetForm.SelectedFacets.Index=7&FacetForm.SelectedFacets.Index=8&GeolocForm.ConfirmedGeolocAddress=&SortForm.SelectedSort=PERTINENCE&ProductListTechnicalForm.Keyword=acer&page='+ str(page) + '&_his_'
+product = ['ordinateur']
+marque = ['dell','acer']
+url = 'https://api.cdiscount.com/OpenApi/json/Search'
+token = 'b7fd90dd-c719-4419-bed0-82119fcb71df'
+page = 5
 
-    r = requests.get(url)
-    soup = BeautifulSoup(r.text, 'html.parser')
-    cells = soup.findAll('div', {"class" : "prdtBZPrice"})
-    listData=[]
+def getMeanDiscountByProductForABrand(url, apiKey, product, brand, number_of_pages):
+    discounts = []
+    for nb in range(page) :
+        postData = {
+                "ApiKey":apiKey,
+                "SearchRequest":
+                    {
+                        "Keyword":product, "SortBy":"relevance", "Pagination":{"ItemsPerPage":10, "PageNumber":nb},
+                        "Filters":
+                            {
+                                "Price":{"Min":0, "Max":9999},
+                                "Navigation":"all", "IncludeMarketPlace":"false", "Brands":[brand], "Condition":"new"
+                            }
+                    }
+            }
 
-    for cell in cells:
-        promo = cell.find('span', { "class" : 'price'})
-        price  = cell.find('div', { "class" : 'prdtPrSt'})
-        #print("price", price)
-        #print("promo",promo)
+        jsonData = json.dumps(postData, ensure_ascii = False)
+        request = requests.post(url, jsonData)
+        result = json.loads(request.text)
 
-        if not promo is None and not price is None and price.text != '':
-            pricer = price.text.replace('€', ',')
+        try:
+            for prod in result.get('Products'):
+                name = prod.get('Name')
+                bestOffer = prod.get('BestOffer')
+                priceDetails = bestOffer.get('PriceDetails')
+                refPrice = float(priceDetails.get('ReferencePrice').split('.')[0])
+                saving = priceDetails.get('Saving')
 
-            promr = promo.text.replace('€', ',')
+                if not(saving):
+                    continue
 
-            moyenne = ((float(pricer.replace(',','.'))-float(promr.replace(',','.')))/float(pricer.replace(',','.')))*100
-            listData.append(moyenne)
+                discount = float(saving.get('Value').split('\\.')[0])
+                discountRate = 1.0 - (refPrice - discount) / refPrice
+                discounts.append(discountRate)
+        except:
+                continue
 
-    return(np.mean(listData))
+        res = (np.mean(discounts)*100)
+    return res
 
-promo = findPromo('dell', '2')
-print("Promo Dell en pourcentage : ", promo,"%")
-
-promo = findPromo('acer', '2')
-print("Promo Acer en pourcentage : ", promo,"%")
+for m in marque:
+    print(m)
+    print(getMeanDiscountByProductForABrand(url, token, product[0], m, page))
